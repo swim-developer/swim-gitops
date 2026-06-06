@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: swim-dnotam-provider
+  namespace: openshift-gitops
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  project: swim
+  sources:
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/swimadmin/swim-digital-notam-provider.git
+      targetRevision: main
+      path: src/main/helm/swim-dnotam-provider
+      helm:
+        valueFiles:
+          - $values/apps/dnotam/provider/overlays/crc-local/values.yaml
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/swimadmin/swim-gitops.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: swim-demo
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

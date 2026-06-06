@@ -1,0 +1,78 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: swim-maven-deps-install
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-pipelines
+spec:
+  description: >-
+    Installs Maven library projects into the local repository cache.
+    Used before native builds that depend on framework/extension modules
+    not part of the same reactor.
+  params:
+    - name: PROJECTS
+      type: string
+      description: >-
+        Space-separated list of project directories to install
+        (relative to workspace root). Installed in order.
+    - name: EXTRA_ARGS
+      type: string
+      description: Extra Maven arguments (e.g. -pl exclusions)
+      default: ""
+  workspaces:
+    - name: source
+      description: Source code workspace
+    - name: maven-cache
+      description: Maven local repository cache
+  steps:
+    - name: fix-permissions
+      image: registry.access.redhat.com/ubi9-minimal:latest
+      workingDir: $(workspaces.source.path)
+      securityContext:
+        runAsUser: 0
+      script: |
+        #!/bin/bash
+        echo "Fixing workspace permissions..."
+        chmod -R a+rwX $(workspaces.source.path)
+        chmod -R a+rwX $(workspaces.maven-cache.path)
+        echo "Done."
+
+    - name: install-deps
+      image: registry.access.redhat.com/ubi9/openjdk-21:latest
+      workingDir: $(workspaces.source.path)
+      computeResources:
+        requests:
+          memory: 1Gi
+          cpu: "1"
+        limits:
+          memory: 2Gi
+          cpu: "2"
+      script: |
+        #!/bin/bash
+        set -e
+
+        MAVEN_REPO="$(workspaces.maven-cache.path)"
+
+        echo "========================================"
+        echo "Installing dependencies"
+        echo "Projects:   $(params.PROJECTS)"
+        echo "Extra args: $(params.EXTRA_ARGS)"
+        echo "Maven cache: ${MAVEN_REPO}"
+        echo "========================================"
+
+        for PROJECT in $(params.PROJECTS); do
+          echo ""
+          echo ">>> Installing ${PROJECT}..."
+          mvn -f "${PROJECT}/pom.xml" clean install \
+            -DskipTests \
+            -Dmaven.repo.local="${MAVEN_REPO}" \
+            $(params.EXTRA_ARGS) \
+            -q
+          echo "    ${PROJECT} installed."
+        done
+
+        echo ""
+        echo "========================================"
+        echo "All dependencies installed."
+        echo "========================================"

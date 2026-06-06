@@ -1,0 +1,16 @@
+# Platform / shared infra
+/infra/                    @swim-developer/platform
+/platform/                 @swim-developer/platform
+/bootstrap/                @swim-developer/platform
+/argocd/projects/          @swim-developer/platform
+
+# Digital NOTAM stack
+/apps/dnotam/              @swim-developer/dnotam
+/argocd/applications/dnotam-*  @swim-developer/dnotam
+
+# ED-254 stack
+/apps/ed254/               @swim-developer/ed254
+/argocd/applications/ed254-*   @swim-developer/ed254
+
+# CI (Tekton)
+/ci/tekton/                @swim-developer/platform

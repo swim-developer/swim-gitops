@@ -1,0 +1,9 @@
+apiVersion: v2
+name: swim-gitea
+description: Gitea Git server for SWIM local GitOps workflow
+type: application
+version: 0.1.0
+dependencies:
+  - name: gitea
+    version: "12.6.0"
+    repository: https://dl.gitea.com/charts/

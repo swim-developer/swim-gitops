@@ -1,0 +1,11 @@
+kafka:
+  enabled: true
+
+mongodb:
+  enabled: true
+
+mariadb:
+  enabled: true
+
+postgres:
+  enabled: true

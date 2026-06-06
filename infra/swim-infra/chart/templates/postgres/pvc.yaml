@@ -1,0 +1,22 @@
+{{- if .Values.postgres.enabled }}
+{{- range .Values.postgres.instances }}
+{{- if has .module $.Values.modules }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .name }}-data
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: {{ .name }}
+    component: database
+    {{- include "swim-infra.labels" $ | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ $.Values.postgres.storageSize }}
+{{- end }}
+{{- end }}
+{{- end }}

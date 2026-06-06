@@ -1,0 +1,24 @@
+{{- if .Values.postgres.enabled }}
+{{- range .Values.postgres.instances }}
+{{- if has .module $.Values.modules }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: {{ .name }}
+    component: database
+    {{- include "swim-infra.labels" $ | nindent 4 }}
+spec:
+  selector:
+    app: {{ .name }}
+  type: ClusterIP
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+{{- end }}
+{{- end }}
+{{- end }}

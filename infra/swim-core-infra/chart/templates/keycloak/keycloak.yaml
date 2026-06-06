@@ -1,0 +1,89 @@
+{{- if .Values.keycloak.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: keycloak-tls
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: keycloak
+    {{- include "swim-core-infra.labels" . | nindent 4 }}
+spec:
+  secretName: keycloak-tls-secret
+  issuerRef:
+    name: {{ .Values.certManager.issuerName }}
+    kind: {{ .Values.certManager.issuerKind }}
+  commonName: rhbk.{{ .Values.clusterDomain }}
+  dnsNames:
+    - rhbk.{{ .Values.clusterDomain }}
+    - keycloak-service.{{ .Release.Namespace }}.svc.cluster.local
+  usages:
+    - server auth
+  privateKey:
+    algorithm: RSA
+    size: 2048
+---
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: Keycloak
+metadata:
+  name: keycloak
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: keycloak
+    {{- include "swim-core-infra.labels" . | nindent 4 }}
+spec:
+  instances: {{ .Values.keycloak.replicas }}
+  db:
+    vendor: postgres
+    host: keycloak-postgres
+    port: 5432
+    database: {{ .Values.keycloak.postgres.database }}
+    usernameSecret:
+      name: keycloak-db-secret
+      key: POSTGRES_USER
+    passwordSecret:
+      name: keycloak-db-secret
+      key: POSTGRES_PASSWORD
+  http:
+    httpEnabled: true
+    tlsSecret: keycloak-tls-secret
+  hostname:
+    {{- if .Values.keycloak.route.hostname }}
+    hostname: {{ .Values.keycloak.route.hostname }}
+    {{- end }}
+  features:
+    enabled:
+      - preview
+  {{- if .Values.keycloak.route.enabled }}
+  ingress:
+    enabled: true
+  {{- else }}
+  ingress:
+    enabled: false
+  {{- end }}
+  unsupported:
+    podTemplate:
+      spec:
+        containers:
+          - name: keycloak
+            {{- if .Values.keycloak.resources }}
+            resources:
+              {{- toYaml .Values.keycloak.resources | nindent 14 }}
+            {{- end }}
+            env:
+              - name: SWIM_ROLE_TARGET_CLIENT
+                value: {{ .Values.keycloak.realm.clients.amqBroker.clientId | quote }}
+              - name: SWIM_ROLE_SUFFIXES
+                value: "-swim-dnotam-v1-amq-role,-swim-ed254-v1-amq-role"
+            {{- if .Values.keycloak.spi.enabled }}
+            volumeMounts:
+              - name: swim-role-spi
+                mountPath: /opt/keycloak/providers/keycloak-swim-role-spi.jar
+                subPath: keycloak-swim-role-spi.jar
+            {{- end }}
+        {{- if .Values.keycloak.spi.enabled }}
+        volumes:
+          - name: swim-role-spi
+            secret:
+              secretName: keycloak-swim-role-spi
+        {{- end }}
+{{- end }}

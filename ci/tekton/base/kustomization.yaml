@@ -1,0 +1,29 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: swim-pipeline
+resources:
+  - namespace.yaml
+  - pvc-workspace.yaml
+  - rbac/pipeline-rbac.yaml
+  - tasks/task-git-clone.yaml
+  - tasks/task-maven-jar-build-root.yaml
+  - tasks/task-maven-native-build-root.yaml
+  - tasks/task-maven-native-build.yaml
+  - tasks/task-maven-deps-install.yaml
+  - tasks/task-buildah-push.yaml
+  - tasks/task-git-release.yaml
+  - tasks/task-gitops-update-tag.yaml
+  - pipelines/pipeline-dnotam-consumer-validator-ci.yaml
+  - pipelines/pipeline-dnotam-provider-validator-ci.yaml
+  - pipelines/pipeline-ed254-consumer-validator-ci.yaml
+  - pipelines/pipeline-ed254-provider-validator-ci.yaml
+  - pipelines/pipeline-dnotam-consumer-ci.yaml
+  - pipelines/pipeline-dnotam-provider-ci.yaml
+  - pipelines/pipeline-ed254-consumer-ci.yaml
+  - pipelines/pipeline-ed254-provider-ci.yaml
+  - pipelines/pipeline-ffice-consumer-validator-ci.yaml
+  - pipelines/pipeline-ffice-provider-validator-ci.yaml
+  - pipelines/pipeline-ffice-consumer-ci.yaml
+  - pipelines/pipeline-ffice-provider-ci.yaml
+  - triggers/eventlistener.yaml
+  - triggers/trigger-bindings-templates.yaml

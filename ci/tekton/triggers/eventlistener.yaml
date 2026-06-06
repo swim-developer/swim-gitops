@@ -1,0 +1,183 @@
+---
+# ServiceAccount used by the EventListener pod.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: swim-pipeline-el
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-gitops
+---
+# Allow the EventListener SA to create PipelineRuns in swim-pipeline
+# and to watch all Tekton Triggers resources it needs to manage itself.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: swim-pipeline-el
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-gitops
+rules:
+  - apiGroups: ["tekton.dev"]
+    resources: ["pipelineruns"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["triggers.tekton.dev"]
+    resources:
+      - eventlisteners
+      - triggerbindings
+      - triggertemplates
+      - interceptors
+      - triggers
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: swim-pipeline-el
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-gitops
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: swim-pipeline-el
+subjects:
+  - kind: ServiceAccount
+    name: swim-pipeline-el
+    namespace: swim-pipeline
+---
+# EventListener — one GitHub webhook per service repo points here.
+# Each trigger is filtered by repository.full_name so a single
+# EventListener handles all SWIM service repos.
+apiVersion: triggers.tekton.dev/v1beta1
+kind: EventListener
+metadata:
+  name: swim-pipelines
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-gitops
+spec:
+  serviceAccountName: swim-pipeline-el
+  triggers:
+    # ── DNOTAM consumer-validator ──────────────────────────────────────────
+    - name: dnotam-consumer-validator
+      interceptors:
+        - ref:
+            name: cel
+          params:
+            - name: filter
+              value: >-
+                body.repository.full_name == 'swim-developer/swim-dnotam-consumer-validator'
+                && body.ref == 'refs/heads/main'
+      bindings:
+        - ref: swim-dnotam-consumer-validator-binding
+      template:
+        ref: swim-dnotam-consumer-validator-template
+
+    # ── DNOTAM provider-validator ──────────────────────────────────────────
+    - name: dnotam-provider-validator
+      interceptors:
+        - ref:
+            name: cel
+          params:
+            - name: filter
+              value: >-
+                body.repository.full_name == 'swim-developer/swim-dnotam-provider-validator'
+                && body.ref == 'refs/heads/main'
+      bindings:
+        - ref: swim-dnotam-provider-validator-binding
+      template:
+        ref: swim-dnotam-provider-validator-template
+
+    # ── ED-254 consumer-validator ──────────────────────────────────────────
+    - name: ed254-consumer-validator
+      interceptors:
+        - ref:
+            name: cel
+          params:
+            - name: filter
+              value: >-
+                body.repository.full_name == 'swim-developer/swim-ed254-consumer-validator'
+                && body.ref == 'refs/heads/main'
+      bindings:
+        - ref: swim-ed254-consumer-validator-binding
+      template:
+        ref: swim-ed254-consumer-validator-template
+
+    # ── ED-254 provider-validator ──────────────────────────────────────────
+    - name: ed254-provider-validator
+      interceptors:
+        - ref:
+            name: cel
+          params:
+            - name: filter
+              value: >-
+                body.repository.full_name == 'swim-developer/swim-ed254-provider-validator'
+                && body.ref == 'refs/heads/main'
+      bindings:
+        - ref: swim-ed254-provider-validator-binding
+      template:
+        ref: swim-ed254-provider-validator-template
+
+    # ── DNOTAM consumer ────────────────────────────────────────────────────
+    - name: dnotam-consumer
+      interceptors:
+        - ref:
+            name: cel
+          params:
+            - name: filter
+              value: >-
+                body.repository.full_name == 'swim-developer/swim-digital-notam-consumer'
+                && body.ref == 'refs/heads/main'
+      bindings:
+        - ref: swim-dnotam-consumer-binding
+      template:
+        ref: swim-dnotam-consumer-template
+
+    # ── DNOTAM provider ────────────────────────────────────────────────────
+    - name: dnotam-provider
+      interceptors:
+        - ref:
+            name: cel
+          params:
+            - name: filter
+              value: >-
+                body.repository.full_name == 'swim-developer/swim-digital-notam-provider'
+                && body.ref == 'refs/heads/main'
+      bindings:
+        - ref: swim-dnotam-provider-binding
+      template:
+        ref: swim-dnotam-provider-template
+
+    # ── ED-254 consumer ────────────────────────────────────────────────────
+    - name: ed254-consumer
+      interceptors:
+        - ref:
+            name: cel
+          params:
+            - name: filter
+              value: >-
+                body.repository.full_name == 'swim-developer/swim-ed254-consumer'
+                && body.ref == 'refs/heads/main'
+      bindings:
+        - ref: swim-ed254-consumer-binding
+      template:
+        ref: swim-ed254-consumer-template
+
+    # ── ED-254 provider ────────────────────────────────────────────────────
+    - name: ed254-provider
+      interceptors:
+        - ref:
+            name: cel
+          params:
+            - name: filter
+              value: >-
+                body.repository.full_name == 'swim-developer/swim-ed254-provider'
+                && body.ref == 'refs/heads/main'
+      bindings:
+        - ref: swim-ed254-provider-binding
+      template:
+        ref: swim-ed254-provider-template

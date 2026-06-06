@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: swim-gitops-ffice
+  namespace: openshift-gitops
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: swim
+  source:
+    repoURL: https://github.com/swim-developer/swim-gitops.git
+    targetRevision: main
+    path: argocd/applications/ffice
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: openshift-gitops
+  ignoreDifferences:
+    - group: argoproj.io
+      kind: Application
+      jsonPointers:
+        - /status
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true

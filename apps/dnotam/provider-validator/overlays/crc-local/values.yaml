@@ -1,0 +1,6 @@
+image:
+  repository: image-registry.openshift-image-registry.svc:5000/swim-demo/swim-dnotam-provider-validator
+  tag: latest
+
+clientCert:
+  issuerKind: Issuer

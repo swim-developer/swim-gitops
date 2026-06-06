@@ -1,0 +1,85 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: swim-maven-native-build
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-pipelines
+spec:
+  description: >-
+    Builds a Quarkus native executable using Mandrel/GraalVM.
+    Supports multi-module Maven reactors with -pl and -am flags.
+  params:
+    - name: REACTOR_DIR
+      type: string
+      description: Maven reactor root directory (relative to workspace root)
+    - name: MODULE_NAME
+      type: string
+      description: Maven module name for -pl flag
+    - name: MAVEN_GOALS
+      type: string
+      description: Maven goals to execute
+      default: "clean package"
+    - name: EXTRA_ARGS
+      type: string
+      description: Extra Maven arguments
+      default: ""
+  workspaces:
+    - name: source
+      description: Source code workspace
+    - name: maven-cache
+      description: Maven local repository cache
+  steps:
+    - name: fix-permissions
+      image: registry.access.redhat.com/ubi9-minimal:latest
+      workingDir: $(workspaces.source.path)
+      securityContext:
+        runAsUser: 0
+      script: |
+        #!/bin/bash
+        echo "Fixing workspace permissions (UID mismatch between Tasks)..."
+        chmod -R a+rwX $(workspaces.source.path)
+        chmod -R a+rwX $(workspaces.maven-cache.path)
+        echo "Done."
+
+    - name: native-build
+      image: quay.io/quarkus/ubi9-quarkus-mandrel-builder-image:jdk-21
+      workingDir: $(workspaces.source.path)/$(params.REACTOR_DIR)
+      computeResources:
+        requests:
+          memory: 12Gi
+          cpu: "4"
+        limits:
+          memory: 16Gi
+          cpu: "8"
+      script: |
+        #!/bin/bash
+        set -e
+
+        MAVEN_REPO="$(workspaces.maven-cache.path)"
+
+        echo "========================================"
+        echo "Reactor:     $(params.REACTOR_DIR)"
+        echo "Module:      $(params.MODULE_NAME)"
+        echo "Goals:       $(params.MAVEN_GOALS)"
+        echo "Maven cache: ${MAVEN_REPO}"
+        echo "Running as:  $(id)"
+        echo "========================================"
+
+        ./mvnw $(params.MAVEN_GOALS) \
+          -Dnative -DskipTests \
+          -pl $(params.MODULE_NAME) -am \
+          -Dmaven.repo.local="${MAVEN_REPO}" \
+          $(params.EXTRA_ARGS)
+
+        echo ""
+        echo "========================================"
+        BINARY=$(ls $(params.MODULE_NAME)/target/*-runner 2>/dev/null)
+        if [ -n "${BINARY}" ]; then
+          echo "Native binary: ${BINARY}"
+          ls -lh ${BINARY}
+        else
+          echo "ERROR: Native binary not found!"
+          exit 1
+        fi
+        echo "========================================"

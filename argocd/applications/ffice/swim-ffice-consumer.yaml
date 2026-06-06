@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: swim-ffice-consumer
+  namespace: openshift-gitops
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+    swim.developer/status: pending-chart
+    swim.developer/note: "Waiting for Helm chart and Containerfile in swim-ffice-consumer repo"
+spec:
+  project: swim
+  sources:
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/swimadmin/swim-ffice-consumer.git
+      targetRevision: main
+      path: src/main/helm/swim-ffice-consumer
+      helm:
+        valueFiles:
+          - $values/apps/ffice/consumer/overlays/crc-local/values.yaml
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/swimadmin/swim-gitops.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: swim-demo
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,132 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: swim-maven-jar-build-root
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-gitops
+spec:
+  description: >-
+    Builds an executable uber-JAR for a single Maven module at repository root.
+    Uses Quarkus JVM packaging (no GraalVM — minimal resource footprint).
+    Clones and installs swim-validators parent POM before building.
+    Default build mode for local and CI environments with limited resources.
+  params:
+    - name: MAVEN_GOALS
+      type: string
+      default: "clean package"
+    - name: EXTRA_ARGS
+      type: string
+      default: ""
+    - name: root-pom-url
+      type: string
+      default: http://gitea-http.gitea.svc.cluster.local:3000/swimadmin/swim-developer-root.git
+      description: Git URL for the swim-developer root parent POM (always installed first)
+    - name: dep-repos
+      type: string
+      default: http://gitea-http.gitea.svc.cluster.local:3000/swimadmin/swim-developer-validators.git
+      description: >-
+        Space-separated list of Git repo URLs to clone and install (mvn install)
+        BEFORE building the service, in dependency order.
+        Validators: http://gitea-http.gitea.svc.cluster.local:3000/swimadmin/swim-developer-validators.git
+        DNOTAM services: framework-url extensions-url swim-aixm-model-url
+        ED-254 services: framework-url extensions-url swim-fixm-model-ed254-url
+  workspaces:
+    - name: source
+    - name: maven-cache
+  steps:
+    - name: install-parent-pom
+      image: docker.io/maven:3.9-eclipse-temurin-21
+      securityContext:
+        runAsUser: 0
+      env:
+        - name: HOME
+          value: /root
+      computeResources:
+        requests:
+          memory: 512Mi
+          cpu: 200m
+        limits:
+          memory: 1Gi
+          cpu: "1"
+      script: |
+        #!/bin/bash
+        set -e
+        MAVEN_REPO="$(workspaces.maven-cache.path)"
+        VALIDATORS_DIR="/tmp/swim-validators"
+        chmod -R a+rwX "${MAVEN_REPO}" || true
+
+        echo "==> [1/N] Installing swim-developer-root (root parent POM)..."
+        GIT_TERMINAL_PROMPT=0 git clone --depth=1 $(params.root-pom-url) /tmp/swim-dep-root
+        cd /tmp/swim-dep-root
+        mvn install -DskipTests -Dmaven.repo.local="${MAVEN_REPO}" -q
+        echo "    swim-developer-root OK"
+
+        i=2
+        for REPO_URL in $(params.dep-repos); do
+          REPO_NAME=$(basename "${REPO_URL}" .git)
+          DEST="/tmp/swim-dep-${REPO_NAME}"
+          echo "==> [${i}/N] Installing ${REPO_NAME}..."
+          GIT_TERMINAL_PROMPT=0 git clone --depth=1 "${REPO_URL}" "${DEST}"
+          cd "${DEST}"
+          mvn install -DskipTests -Dmaven.repo.local="${MAVEN_REPO}" -q
+          echo "    ${REPO_NAME} OK"
+          i=$((i+1))
+        done
+
+    - name: jar-build
+      image: docker.io/maven:3.9-eclipse-temurin-21
+      workingDir: $(workspaces.source.path)
+      securityContext:
+        runAsUser: 0
+      computeResources:
+        requests:
+          memory: 1Gi
+          cpu: 500m
+        limits:
+          memory: 3Gi
+          cpu: "2"
+      env:
+        - name: MAVEN_OPTS
+          value: "-Xmx2g -XX:+ExitOnOutOfMemoryError"
+        - name: HOME
+          value: /root
+      script: |
+        #!/bin/bash
+        set -e
+        MAVEN_REPO="$(workspaces.maven-cache.path)"
+        chmod -R a+rwX $(workspaces.source.path) || true
+        chmod -R a+rwX "${MAVEN_REPO}" || true
+
+        MVN_CMD="./mvnw"
+        if [ ! -x "${MVN_CMD}" ]; then
+          MVN_CMD="mvn"
+        fi
+
+        ${MVN_CMD} $(params.MAVEN_GOALS) \
+          -DskipTests \
+          -Dmaven.repo.local="${MAVEN_REPO}" \
+          $(params.EXTRA_ARGS)
+
+        if [ ! -d target/quarkus-app ]; then
+          echo "ERROR: target/quarkus-app not found. Build may have failed."
+          ls -la target/ || true
+          exit 1
+        fi
+        echo "Fast-jar build successful. Quarkus app layout:"
+        ls -lh target/quarkus-app/*.jar 2>/dev/null || ls -lh target/quarkus-app/ | head -5
+
+        echo ""
+        echo "==> Building uber-jar for release artifact..."
+        ${MVN_CMD} package -DskipTests \
+          -Dmaven.repo.local="${MAVEN_REPO}" \
+          -Dquarkus.package.jar.type=uber-jar \
+          $(params.EXTRA_ARGS)
+
+        UBER_JAR=$(ls target/*-runner.jar 2>/dev/null | head -1)
+        if [ -n "${UBER_JAR}" ]; then
+          cp "${UBER_JAR}" target/app-runner.jar
+          echo "Uber-jar created: $(ls -lh target/app-runner.jar)"
+        else
+          echo "WARNING: uber-jar not found in target/"
+        fi

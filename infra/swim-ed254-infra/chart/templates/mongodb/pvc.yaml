@@ -1,0 +1,20 @@
+{{- if .Values.mongodb.enabled }}
+{{- range .Values.mongodb.instances }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .name }}-data
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: {{ .name }}
+    component: database
+    {{- include "swim-ed254-infra.labels" $ | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ $.Values.mongodb.storageSize }}
+{{- end }}
+{{- end }}

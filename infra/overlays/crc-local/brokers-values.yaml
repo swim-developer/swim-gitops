@@ -1,0 +1,19 @@
+certManager:
+  issuerName: swim-ca-issuer
+  # Namespaced Issuer: CA secret lives in swim-demo (Argo destination namespace).
+  issuerKind: Issuer
+
+artemis:
+  provider:
+    # Placeholder secrets for per-service broker.properties configs.
+    # Created empty by this chart; populated by each service infra chart (swim-dnotam-infra, etc.).
+    extraSecrets:
+      - provider-artemis-dnotam-address-bp
+      - provider-artemis-dnotam-security-bp
+      - provider-artemis-ed254-address-bp
+      - provider-artemis-ed254-security-bp
+      - provider-artemis-ffice-address-bp
+      - provider-artemis-ffice-security-bp
+    oidc:
+      enabled: true
+      authServerUrl: "https://rhbk.apps-crc.testing/"

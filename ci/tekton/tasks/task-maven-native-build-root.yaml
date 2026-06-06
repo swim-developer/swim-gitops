@@ -1,0 +1,55 @@
+# Single-module Quarkus repo at workspace root (no -pl).
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: swim-maven-native-build-root
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-gitops
+spec:
+  description: Native build for a single Maven module at repository root.
+  params:
+    - name: MAVEN_GOALS
+      type: string
+      default: "clean package"
+    - name: EXTRA_ARGS
+      type: string
+      default: ""
+  workspaces:
+    - name: source
+    - name: maven-cache
+  steps:
+    - name: fix-permissions
+      image: registry.access.redhat.com/ubi9-minimal:latest
+      workingDir: $(workspaces.source.path)
+      securityContext:
+        runAsUser: 0
+      script: |
+        #!/bin/bash
+        chmod -R a+rwX $(workspaces.source.path)
+        chmod -R a+rwX $(workspaces.maven-cache.path)
+
+    - name: native-build
+      image: quay.io/quarkus/ubi9-quarkus-mandrel-builder-image:jdk-21
+      workingDir: $(workspaces.source.path)
+      computeResources:
+        requests:
+          memory: 12Gi
+          cpu: "4"
+        limits:
+          memory: 16Gi
+          cpu: "8"
+      script: |
+        #!/bin/bash
+        set -e
+        MAVEN_REPO="$(workspaces.maven-cache.path)"
+        ./mvnw $(params.MAVEN_GOALS) \
+          -Dnative -DskipTests \
+          -Dmaven.repo.local="${MAVEN_REPO}" \
+          $(params.EXTRA_ARGS)
+        BINARY=$(ls target/*-runner 2>/dev/null | head -1)
+        if [ -z "${BINARY}" ]; then
+          echo "ERROR: Native binary not found under target/"
+          exit 1
+        fi
+        ls -lh "${BINARY}"

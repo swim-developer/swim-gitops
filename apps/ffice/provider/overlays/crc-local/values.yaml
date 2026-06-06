@@ -1,0 +1,9 @@
+image:
+  repository: image-registry.openshift-image-registry.svc:5000/swim-demo/swim-ffice-provider
+  tag: latest
+
+certManager:
+  issuerKind: Issuer
+
+serverCert:
+  issuerKind: Issuer

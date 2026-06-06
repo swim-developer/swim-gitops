@@ -1,0 +1,39 @@
+certManager:
+  issuerName: swim-ca-issuer
+  issuerKind: ClusterIssuer
+
+artemis:
+  credentials:
+    user: admin
+    password: admin
+  keystorePassword: changeit
+  validator:
+    enabled: true
+    globalMaxSize: 256m
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 100m
+      limits:
+        memory: 512Mi
+        cpu: "1"
+  provider:
+    enabled: true
+    globalMaxSize: 512m
+    # List of secret names to mount as extraMounts into the provider broker.
+    # Placeholder secrets (empty broker.properties) are created for each entry
+    # if the secret does not already exist in the namespace.
+    # Per-service address/security configs are populated by the service infra chart.
+    extraSecrets: []
+    oidc:
+      enabled: false
+      realm: swim
+      authServerUrl: ""
+      clientId: amq-broker
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 100m
+      limits:
+        memory: 512Mi
+        cpu: "1"

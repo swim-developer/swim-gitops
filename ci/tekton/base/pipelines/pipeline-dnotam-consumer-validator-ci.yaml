@@ -1,0 +1,176 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: swim-dnotam-consumer-validator-ci
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-gitops
+spec:
+  description: >-
+    CI for swim-dnotam-consumer-validator.
+    Builds an executable JAR by default (build-native=false) or a Quarkus native
+    binary (build-native=true — requires 12Gi+ RAM and 4+ CPUs).
+    Container image is pushed to the configured registry.
+    CD is handled by Argo CD — this pipeline does not deploy to the cluster.
+  params:
+    - name: git-url
+      type: string
+      default: http://gitea-http.gitea.svc.cluster.local:3000/swimadmin/swim-dnotam-consumer-validator.git
+    - name: git-revision
+      type: string
+      default: main
+    - name: image-name
+      type: string
+      default: quay.io/masales/swim-dnotam-consumer-validator
+    - name: image-tag
+      type: string
+      default: latest
+    - name: dep-repos
+      type: string
+      default: "http://gitea-http.gitea.svc.cluster.local:3000/swimadmin/swim-developer-validators.git"
+      description: >-
+        Space-separated Git repo URLs installed (mvn install) before building, in dependency order.
+    - name: build-native
+      type: string
+      default: "false"
+      description: >-
+        Set to "true" to build a Quarkus native binary (requires GraalVM,
+        12Gi+ RAM and 4+ CPUs on the build node). Default is "false" which
+        produces a standard uber-JAR runnable on any JVM 21+.
+    - name: dockerfile
+      type: string
+      default: src/main/docker/Containerfile.jvm
+      description: >-
+        Containerfile used to build the container image.
+        Default: src/main/docker/Containerfile.jvm (JVM/JAR mode).
+        For native binary: src/main/docker/Containerfile.native-micro
+
+    - name: git-api-url
+      type: string
+      default: https://gitea.apps-crc.testing/api/v1
+      description: "Git server API URL (Gitea or GitHub)"
+    - name: release-repo
+      type: string
+      default: swimadmin/swim-dnotam-consumer-validator
+      description: "Repo in owner/repo format for release creation"
+    - name: create-release
+      type: string
+      default: "true"
+      description: "Create a release with the built artifact"
+
+  workspaces:
+    - name: shared-workspace
+    - name: maven-cache
+    - name: docker-credentials
+    - name: git-token
+
+  tasks:
+    - name: git-clone
+      taskRef:
+        name: git-clone
+      retries: 2
+      params:
+        - name: url
+          value: $(params.git-url)
+        - name: revision
+          value: $(params.git-revision)
+        - name: deleteExisting
+          value: "true"
+        - name: userHome
+          value: /tmp/git-home
+      workspaces:
+        - name: output
+          workspace: shared-workspace
+
+    # ── JAR build (default — no GraalVM required) ──────────────────────────
+    - name: jar-build
+      taskRef:
+        name: swim-maven-jar-build-root
+      retries: 1
+      runAfter:
+        - git-clone
+      when:
+        - input: "$(params.build-native)"
+          operator: in
+          values: ["false"]
+      params:
+        - name: dep-repos
+          value: $(params.dep-repos)
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+        - name: maven-cache
+          workspace: maven-cache
+
+    # ── Native build (opt-in — requires GraalVM and significant resources) ──
+    - name: native-build
+      taskRef:
+        name: swim-maven-native-build-root
+      retries: 1
+      runAfter:
+        - git-clone
+      when:
+        - input: "$(params.build-native)"
+          operator: in
+          values: ["true"]
+      params:
+        - name: dep-repos
+          value: $(params.dep-repos)
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+        - name: maven-cache
+          workspace: maven-cache
+
+    # ── Create release with JAR/binary artifact ─────────────────────────────
+    - name: create-release
+      taskRef:
+        name: swim-git-release
+      runAfter:
+        - jar-build
+        - native-build
+      when:
+        - input: "$(params.create-release)"
+          operator: in
+          values: ["true"]
+      params:
+        - name: GIT_API_URL
+          value: $(params.git-api-url)
+        - name: REPO_FULL_NAME
+          value: $(params.release-repo)
+        - name: TAG
+          value: $(params.image-tag)
+        - name: ASSET_PATH
+          value: target/app-runner.jar
+        - name: ASSET_NAME
+          value: swim-dnotam-consumer-validator.jar
+        - name: TLS_VERIFY
+          value: "false"
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+        - name: git-token
+          workspace: git-token
+
+    # ── Container image build and push ─────────────────────────────────────
+    - name: build-and-push-image
+      taskRef:
+        name: swim-buildah-push
+      retries: 2
+      runAfter:
+        - jar-build
+        - native-build
+      params:
+        - name: IMAGE
+          value: $(params.image-name):$(params.image-tag)
+        - name: DOCKERFILE
+          value: $(params.dockerfile)
+        - name: CONTEXT
+          value: "."
+        - name: TLSVERIFY
+          value: "false"
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+        - name: dockerconfig
+          workspace: docker-credentials

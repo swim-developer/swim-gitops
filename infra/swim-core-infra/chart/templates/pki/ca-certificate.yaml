@@ -1,0 +1,20 @@
+{{- if .Values.pki.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: swim-root-ca
+  namespace: {{ .Values.pki.certManagerNamespace }}
+  labels:
+    {{- include "swim-core-infra.labels" . | nindent 4 }}
+spec:
+  isCA: true
+  commonName: {{ .Values.pki.ca.commonName }}
+  secretName: swim-root-ca-secret
+  duration: {{ .Values.pki.ca.duration }}
+  privateKey:
+    algorithm: {{ .Values.pki.ca.algorithm }}
+    size: {{ .Values.pki.ca.size }}
+  issuerRef:
+    name: swim-selfsigned-issuer
+    kind: ClusterIssuer
+{{- end }}

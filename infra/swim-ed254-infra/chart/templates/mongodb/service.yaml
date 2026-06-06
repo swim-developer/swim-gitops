@@ -1,0 +1,24 @@
+{{- if .Values.mongodb.enabled }}
+{{- range .Values.mongodb.instances }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: {{ .name }}
+    component: database
+    {{- include "swim-ed254-infra.labels" $ | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: mongo
+      port: 27017
+      targetPort: 27017
+      protocol: TCP
+  selector:
+    app: {{ .name }}
+    component: database
+{{- end }}
+{{- end }}

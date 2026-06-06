@@ -1,0 +1,119 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: swim-git-release
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-gitops
+spec:
+  description: >-
+    Creates a Git release and uploads the JAR or native binary as an asset.
+    Works with Gitea and GitHub (both use compatible REST APIs).
+    Requires an API token stored in a Kubernetes secret.
+  params:
+    - name: GIT_API_URL
+      type: string
+      description: "Base API URL (e.g. https://gitea.apps-crc.testing/api/v1 or https://api.github.com)"
+    - name: REPO_FULL_NAME
+      type: string
+      description: "Repo in owner/repo format (e.g. swimadmin/swim-dnotam-consumer-validator)"
+    - name: TAG
+      type: string
+      description: "Git tag for the release (e.g. v1.0.0 or commit SHA)"
+    - name: ASSET_PATH
+      type: string
+      description: "Path to the asset file relative to workspace root"
+    - name: ASSET_NAME
+      type: string
+      description: "Filename for the uploaded asset"
+    - name: RELEASE_NAME
+      type: string
+      default: ""
+      description: "Release title (defaults to TAG if empty)"
+    - name: PRERELEASE
+      type: string
+      default: "false"
+    - name: TLS_VERIFY
+      type: string
+      default: "true"
+      description: "Set to false for self-signed certificates (e.g. CRC)"
+  workspaces:
+    - name: source
+    - name: git-token
+      description: "Secret with key 'token' containing an API token"
+  steps:
+    - name: create-release-and-upload
+      image: docker.io/curlimages/curl:8.13.0
+      workingDir: $(workspaces.source.path)
+      script: |
+        #!/bin/sh
+        set -e
+        TOKEN=$(cat $(workspaces.git-token.path)/token)
+        API="$(params.GIT_API_URL)"
+        REPO="$(params.REPO_FULL_NAME)"
+        TAG="$(params.TAG)"
+        ASSET_PATH="$(params.ASSET_PATH)"
+        ASSET_NAME="$(params.ASSET_NAME)"
+        RELEASE_NAME="$(params.RELEASE_NAME)"
+        if [ -z "${RELEASE_NAME}" ]; then
+          RELEASE_NAME="${TAG}"
+        fi
+
+        CURL_OPTS=""
+        if [ "$(params.TLS_VERIFY)" = "false" ]; then
+          CURL_OPTS="-k"
+        fi
+
+        echo "Creating release ${TAG} on ${REPO}..."
+        RESPONSE=$(curl ${CURL_OPTS} -sS -w "\n%{http_code}" -X POST \
+          -H "Authorization: token ${TOKEN}" \
+          -H "Content-Type: application/json" \
+          "${API}/repos/${REPO}/releases" \
+          -d "{
+            \"tag_name\": \"${TAG}\",
+            \"target_commitish\": \"main\",
+            \"name\": \"${RELEASE_NAME}\",
+            \"body\": \"CI build ${TAG}\",
+            \"draft\": false,
+            \"prerelease\": $(params.PRERELEASE)
+          }")
+
+        HTTP_CODE=$(echo "${RESPONSE}" | tail -1)
+        BODY=$(echo "${RESPONSE}" | sed '$d')
+
+        if [ "${HTTP_CODE}" = "409" ]; then
+          echo "Release ${TAG} already exists, fetching..."
+          BODY=$(curl ${CURL_OPTS} -sS \
+            -H "Authorization: token ${TOKEN}" \
+            "${API}/repos/${REPO}/releases/tags/${TAG}")
+        elif [ "${HTTP_CODE}" != "201" ]; then
+          echo "WARNING: Release creation returned HTTP ${HTTP_CODE}:"
+          echo "${BODY}"
+          echo "Skipping release (non-fatal)."
+          exit 0
+        fi
+
+        RELEASE_ID=$(echo "${BODY}" | grep -oE '"id"\s*:\s*[0-9]+' | head -1 | grep -oE '[0-9]+')
+        if [ -z "${RELEASE_ID}" ]; then
+          echo "WARNING: Could not extract release ID. Skipping asset upload."
+          exit 0
+        fi
+        echo "Release created/found: id=${RELEASE_ID}"
+
+        if [ ! -f "${ASSET_PATH}" ]; then
+          echo "WARNING: Asset file ${ASSET_PATH} not found — skipping upload."
+          exit 0
+        fi
+
+        echo "Uploading asset ${ASSET_NAME}..."
+        UPLOAD_CODE=$(curl ${CURL_OPTS} -sS -o /dev/null -w "%{http_code}" -X POST \
+          -H "Authorization: token ${TOKEN}" \
+          -H "Content-Type: application/octet-stream" \
+          "${API}/repos/${REPO}/releases/${RELEASE_ID}/assets?name=${ASSET_NAME}" \
+          --data-binary "@${ASSET_PATH}")
+
+        if [ "${UPLOAD_CODE}" = "201" ]; then
+          echo "Release ${TAG} published with asset ${ASSET_NAME}"
+        else
+          echo "WARNING: Asset upload returned HTTP ${UPLOAD_CODE}. Release exists but asset may be missing."
+        fi

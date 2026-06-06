@@ -1,0 +1,194 @@
+{{- if .Values.artemis.provider.enabled }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: provider-artemis-credentials
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: provider-artemis
+    component: broker
+    {{- include "swim-infra.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  AMQ_USER: {{ .Values.artemis.credentials.user }}
+  AMQ_PASSWORD: {{ .Values.artemis.credentials.password }}
+  AMQ_CLUSTER_USER: {{ .Values.artemis.credentials.user }}
+  AMQ_CLUSTER_PASSWORD: {{ .Values.artemis.credentials.password }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: provider-artemis-keystore-password
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: provider-artemis
+    component: broker
+    {{- include "swim-infra.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  password: {{ .Values.artemis.keystorePassword }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: provider-artemis-amqp
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: provider-artemis
+    component: broker
+    {{- include "swim-infra.labels" . | nindent 4 }}
+spec:
+  secretName: provider-artemis-amqp-tls
+  issuerRef:
+    name: {{ .Values.certManager.issuerName }}
+    kind: {{ .Values.certManager.issuerKind }}
+  commonName: provider-artemis
+  dnsNames:
+    - provider-artemis-amqps-0-svc.{{ .Release.Namespace }}.svc.cluster.local
+    - provider-artemis-hdls-svc.{{ .Release.Namespace }}.svc.cluster.local
+    - provider-artemis-amqps-0-svc.{{ .Release.Namespace }}.svc
+    - provider-artemis-hdls-svc.{{ .Release.Namespace }}.svc
+    - provider-artemis-amqps-0-svc.{{ .Release.Namespace }}
+    - provider-artemis-hdls-svc.{{ .Release.Namespace }}
+    - provider-artemis-amqps-0-svc
+    - provider-artemis-hdls-svc
+    - provider-artemis
+    - localhost
+  usages:
+    - server auth
+    - client auth
+  keystores:
+    jks:
+      create: true
+      passwordSecretRef:
+        name: provider-artemis-keystore-password
+        key: password
+  privateKey:
+    algorithm: RSA
+    size: 2048
+    rotationPolicy: Always
+{{- range .Values.artemis.provider.extraSecrets }}
+{{- if not (lookup "v1" "Secret" $.Release.Namespace .) }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ . }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: provider-artemis
+    component: broker
+    {{- include "swim-infra.labels" $ | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep
+type: Opaque
+stringData:
+  broker.properties: ""
+{{- end }}
+{{- end }}
+{{- if .Values.artemis.provider.oidc.enabled }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: provider-artemis-sso-jaas-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: provider-artemis
+    component: broker
+    {{- include "swim-infra.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  login.config: |
+    activemq {
+
+        org.apache.activemq.artemis.spi.core.security.jaas.PropertiesLoginModule sufficient
+            org.apache.activemq.jaas.properties.user="artemis-users.properties"
+            org.apache.activemq.jaas.properties.role="artemis-roles.properties"
+            baseDir="/home/jboss/amq-broker/etc";
+
+        org.keycloak.adapters.jaas.BearerTokenLoginModule required
+            keycloak-config-file="/amq/extra/secrets/provider-artemis-sso-jaas-config/_keycloak-login-module.json"
+            role-principal-class="org.apache.activemq.artemis.spi.core.security.jaas.RolePrincipal";
+
+        org.apache.activemq.artemis.spi.core.security.jaas.PrincipalConversionLoginModule required
+            principalClassList="org.keycloak.KeycloakPrincipal";
+
+    };
+  _keycloak-login-module.json: |
+    {
+      "realm": {{ .Values.artemis.provider.oidc.realm | quote }},
+      "auth-server-url": {{ .Values.artemis.provider.oidc.authServerUrl | quote }},
+      "ssl-required": "external",
+      "resource": {{ .Values.artemis.provider.oidc.clientId | quote }},
+      "bearer-only": true,
+      "verify-token-audience": true,
+      "use-resource-role-mappings": true
+    }
+{{- end }}
+---
+apiVersion: broker.amq.io/v1beta1
+kind: ActiveMQArtemis
+metadata:
+  name: provider-artemis
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: provider-artemis
+    component: broker
+    {{- include "swim-infra.labels" . | nindent 4 }}
+spec:
+  acceptors:
+    - name: amqps
+      port: 5671
+      protocols: AMQP
+      sslEnabled: true
+      sslSecret: provider-artemis-ssl-secret
+      needClientAuth: true
+      verifyHost: false
+      expose: true
+    - name: amqp
+      port: 5672
+      protocols: AMQP
+      sslEnabled: false
+      expose: false
+  adminUser: {{ .Values.artemis.credentials.user }}
+  adminPassword: {{ .Values.artemis.credentials.password }}
+  brokerProperties:
+    - globalMaxSize={{ .Values.artemis.provider.globalMaxSize }}
+    - addressSettings.#.expiryDelay=86400000
+    - addressSettings.#.expiryAddress=ExpiryQueue
+    - addressSettings.#.autoDeleteQueues=false
+    - addressSettings.#.autoDeleteAddresses=false
+    - addressSettings.#.maxDeliveryAttempts=10
+    - addressSettings.#.redeliveryDelay=5000
+    - addressSettings.#.addressFullPolicy=PAGE
+    - addressSettings.#.slowConsumerThreshold=5
+    - addressSettings.#.slowConsumerPolicy=NOTIFY
+  console:
+    expose: true
+    sslEnabled: false
+  deploymentPlan:
+    image: placeholder
+    journalType: nio
+    messageMigration: false
+    persistenceEnabled: true
+    requireLogin: true
+    size: 1
+    resources:
+      {{- toYaml .Values.artemis.provider.resources | nindent 6 }}
+    {{- if or .Values.artemis.provider.oidc.enabled .Values.artemis.provider.extraSecrets }}
+    extraMounts:
+      secrets:
+        {{- if .Values.artemis.provider.oidc.enabled }}
+        - provider-artemis-sso-jaas-config
+        {{- end }}
+        {{- range .Values.artemis.provider.extraSecrets }}
+        - {{ . }}
+        {{- end }}
+    {{- end }}
+  {{- if .Values.artemis.provider.oidc.enabled }}
+  env:
+    - name: JAVA_ARGS_APPEND
+      value: "-Djavax.net.ssl.trustStore=/etc/provider-artemis-ssl-secret-volume/client.ts -Djavax.net.ssl.trustStorePassword={{ .Values.artemis.keystorePassword }}"
+  {{- end }}
+{{- end }}

@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: swim-shared-brokers
+  namespace: openshift-gitops
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: swim
+  source:
+    repoURL: http://gitea-http.gitea.svc.cluster.local:3000/swimadmin/swim-gitops.git
+    targetRevision: main
+    path: infra/swim-shared-brokers/chart
+    helm:
+      releaseName: swim-shared-brokers
+      valueFiles:
+        - ../../overlays/crc-local/brokers-values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: swim-demo
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

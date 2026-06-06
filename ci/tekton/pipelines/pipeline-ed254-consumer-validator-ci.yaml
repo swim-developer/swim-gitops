@@ -1,0 +1,79 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: swim-ed254-consumer-validator-ci
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-gitops
+spec:
+  description: >-
+    CI for swim-ed254-consumer-validator (public repo).
+    Native build + container image push to Quay.io.
+    CD is handled by Argo CD — this pipeline does not deploy to the cluster.
+  params:
+    - name: git-url
+      type: string
+      default: http://gitea-http.gitea.svc.cluster.local:3000/swimadmin/swim-ed254-consumer-validator.git
+    - name: git-revision
+      type: string
+      default: main
+    - name: image-name
+      type: string
+      default: quay.io/masales/swim-ed254-consumer-validator
+    - name: image-tag
+      type: string
+      default: latest
+
+  workspaces:
+    - name: shared-workspace
+    - name: maven-cache
+    - name: docker-credentials
+
+  tasks:
+    - name: git-clone
+      taskRef:
+        name: git-clone
+      retries: 2
+      params:
+        - name: url
+          value: $(params.git-url)
+        - name: revision
+          value: $(params.git-revision)
+        - name: deleteExisting
+          value: "true"
+        - name: userHome
+          value: /tmp/git-home
+      workspaces:
+        - name: output
+          workspace: shared-workspace
+
+    - name: maven-native-build
+      taskRef:
+        name: swim-maven-native-build-root
+      retries: 2
+      runAfter:
+        - git-clone
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+        - name: maven-cache
+          workspace: maven-cache
+
+    - name: build-and-push-image
+      taskRef:
+        name: swim-buildah-push
+      retries: 2
+      runAfter:
+        - maven-native-build
+      params:
+        - name: IMAGE
+          value: $(params.image-name):$(params.image-tag)
+        - name: DOCKERFILE
+          value: src/main/docker/Containerfile.native-micro
+        - name: CONTEXT
+          value: "."
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+        - name: dockerconfig
+          workspace: docker-credentials

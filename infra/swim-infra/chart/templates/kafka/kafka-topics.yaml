@@ -1,0 +1,22 @@
+{{- if .Values.kafka.enabled }}
+{{- range .Values.kafka.topics }}
+{{- if has .module $.Values.modules }}
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    strimzi.io/cluster: kafka
+    {{- include "swim-infra.labels" $ | nindent 4 }}
+spec:
+  partitions: {{ .partitions }}
+  replicas: 1
+  config:
+    retention.ms: {{ $.Values.kafka.retention.ms }}
+    min.insync.replicas: 1
+    segment.bytes: {{ $.Values.kafka.retention.bytes }}
+{{- end }}
+{{- end }}
+{{- end }}

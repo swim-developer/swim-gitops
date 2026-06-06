@@ -1,0 +1,147 @@
+{{- if .Values.keycloak.enabled }}
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: KeycloakRealmImport
+metadata:
+  name: swim-realm-import
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: keycloak
+    {{- include "swim-infra.labels" . | nindent 4 }}
+spec:
+  keycloakCRName: keycloak
+  realm:
+    realm: {{ .Values.keycloak.realm.name }}
+    enabled: true
+    sslRequired: external
+    registrationAllowed: false
+    loginWithEmailAllowed: true
+    duplicateEmailsAllowed: false
+    resetPasswordAllowed: false
+    editUsernameAllowed: false
+    accessTokenLifespan: 300
+    ssoSessionIdleTimeout: 1800
+    ssoSessionMaxLifespan: 36000
+    eventsEnabled: false
+    eventsListeners:
+      - jboss-logging
+      - swim-role-creator
+
+    roles:
+      client:
+        {{ .Values.keycloak.realm.clients.amqBroker.clientId }}:
+          - name: admin
+            description: "Admin Role for AMQ Broker"
+            clientRole: true
+          {{- range .Values.keycloak.realm.users }}
+          - name: {{ .username }}-swim-dnotam-v1-amq-role
+            description: "SWIM DNOTAM queue role for {{ .username }}"
+            clientRole: true
+          - name: {{ .username }}-swim-ed254-v1-amq-role
+            description: "SWIM ED-254 queue role for {{ .username }}"
+            clientRole: true
+          {{- end }}
+
+    clients:
+      - clientId: {{ .Values.keycloak.realm.clients.amqBroker.clientId }}
+        name: "AMQ Broker Server"
+        enabled: true
+        clientAuthenticatorType: client-secret
+        secret: {{ .Values.keycloak.realm.clients.amqBroker.secret }}
+        publicClient: false
+        standardFlowEnabled: false
+        implicitFlowEnabled: false
+        directAccessGrantsEnabled: true
+        serviceAccountsEnabled: false
+        frontchannelLogout: true
+        protocol: openid-connect
+        redirectUris:
+          - "/*"
+        webOrigins:
+          - "/*"
+        fullScopeAllowed: true
+        protocolMappers:
+          - name: amq-broker-audience
+            protocol: openid-connect
+            protocolMapper: oidc-audience-mapper
+            consentRequired: false
+            config:
+              included.client.audience: {{ .Values.keycloak.realm.clients.amqBroker.clientId }}
+              id.token.claim: "false"
+              lightweight.claim: "false"
+              introspection.token.claim: "true"
+              access.token.claim: "true"
+              userinfo.token.claim: "false"
+
+      - clientId: {{ .Values.keycloak.realm.clients.dnotamProvider.clientId }}
+        name: "SWIM Digital NOTAM Provider"
+        enabled: true
+        clientAuthenticatorType: client-secret
+        secret: {{ .Values.keycloak.realm.clients.dnotamProvider.secret }}
+        publicClient: false
+        standardFlowEnabled: false
+        implicitFlowEnabled: false
+        directAccessGrantsEnabled: false
+        serviceAccountsEnabled: false
+        frontchannelLogout: true
+        protocol: openid-connect
+        redirectUris:
+          - "/*"
+        webOrigins:
+          - "/*"
+        fullScopeAllowed: true
+
+      - clientId: {{ .Values.keycloak.realm.clients.ed254Provider.clientId }}
+        name: "SWIM ED-254 Provider"
+        enabled: true
+        clientAuthenticatorType: client-secret
+        secret: {{ .Values.keycloak.realm.clients.ed254Provider.secret }}
+        publicClient: false
+        standardFlowEnabled: false
+        implicitFlowEnabled: false
+        directAccessGrantsEnabled: false
+        serviceAccountsEnabled: false
+        frontchannelLogout: true
+        protocol: openid-connect
+        redirectUris:
+          - "/*"
+        webOrigins:
+          - "/*"
+        fullScopeAllowed: true
+
+      - clientId: {{ .Values.keycloak.realm.clients.publicClient.clientId }}
+        name: "SWIM Public Client"
+        enabled: true
+        publicClient: true
+        standardFlowEnabled: true
+        implicitFlowEnabled: false
+        directAccessGrantsEnabled: true
+        serviceAccountsEnabled: false
+        frontchannelLogout: true
+        protocol: openid-connect
+        redirectUris:
+          - "*"
+        webOrigins:
+          - "*"
+        fullScopeAllowed: true
+
+    users:
+      {{- range $i, $user := .Values.keycloak.realm.users }}
+      - username: {{ $user.username }}
+        email: {{ $user.email }}
+        firstName: {{ $user.firstName }}
+        lastName: {{ $user.lastName }}
+        emailVerified: true
+        enabled: true
+        credentials:
+          - type: password
+            value: {{ $user.password }}
+            temporary: false
+        clientRoles:
+          {{ $.Values.keycloak.realm.clients.amqBroker.clientId }}:
+            - {{ $user.username }}-swim-dnotam-v1-amq-role
+            - {{ $user.username }}-swim-ed254-v1-amq-role
+            {{- if eq $i 0 }}
+            - admin
+            {{- end }}
+      {{- end }}
+{{- end }}

@@ -1,0 +1,9 @@
+image:
+  repository: image-registry.openshift-image-registry.svc:5000/swim-demo/swim-ed254-consumer-validator
+  tag: latest
+
+serverCert:
+  issuerKind: Issuer
+
+clientCert:
+  issuerKind: Issuer

@@ -1,0 +1,6 @@
+image:
+  repository: image-registry.openshift-image-registry.svc:5000/swim-demo/swim-ed254-consumer
+  tag: latest
+
+certManager:
+  issuerKind: Issuer

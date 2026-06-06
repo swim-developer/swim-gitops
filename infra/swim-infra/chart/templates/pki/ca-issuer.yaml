@@ -1,0 +1,14 @@
+{{- if .Values.pki.enabled }}
+apiVersion: cert-manager.io/v1
+kind: {{ .Values.certManager.issuerKind }}
+metadata:
+  name: {{ .Values.certManager.issuerName }}
+  {{- if eq .Values.certManager.issuerKind "Issuer" }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+  labels:
+    {{- include "swim-infra.labels" . | nindent 4 }}
+spec:
+  ca:
+    secretName: swim-root-ca-secret
+{{- end }}

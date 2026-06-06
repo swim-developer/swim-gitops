@@ -1,0 +1,16 @@
+.DS_Store
+.idea/
+*.swp
+*.tmp
+secrets/
+
+# Red Hat CRC pull secret (download locally; never push to GitHub)
+pull-secret
+pull-secret.txt
+pull-secret.json
+pull-secret.*
+*.pem
+*.key
+
+# User-specific configuration (generated from config/swim.env.example)
+config/swim.env

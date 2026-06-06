@@ -1,0 +1,74 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: swim-gitops-update-tag
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-gitops
+spec:
+  description: >-
+    Updates the image tag in the swim-gitops repository after a successful CI
+    build. This triggers Argo CD to deploy the new version. Uses a Git commit
+    to the GitOps repo (explicit audit trail over Image Updater).
+  params:
+    - name: GITOPS_REPO_URL
+      type: string
+      default: http://gitea-http.gitea.svc.cluster.local:3000/swimadmin/swim-gitops.git
+      description: "GitOps repository URL"
+    - name: SERVICE_NAME
+      type: string
+      description: "Service name (e.g. swim-dnotam-consumer-validator)"
+    - name: STACK
+      type: string
+      description: "Stack folder in apps/ (e.g. dnotam, ed254, ffice)"
+    - name: COMPONENT
+      type: string
+      description: "Component folder under stack (e.g. consumer-validator, provider)"
+    - name: IMAGE_TAG
+      type: string
+      description: "New image tag (commit SHA or version)"
+    - name: GIT_BRANCH
+      type: string
+      default: main
+  workspaces:
+    - name: git-credentials
+      description: "Secret with 'token' key for Git push access"
+  steps:
+    - name: update-and-push
+      image: docker.io/alpine/git:2.47.2
+      script: |
+        #!/bin/sh
+        set -e
+        TOKEN=$(cat $(workspaces.git-credentials.path)/token)
+        REPO_URL="$(params.GITOPS_REPO_URL)"
+        AUTH_URL=$(echo "${REPO_URL}" | sed "s|https://|https://git:${TOKEN}@|")
+        WORKDIR="/tmp/swim-gitops"
+        VALUES_PATH="apps/$(params.STACK)/$(params.COMPONENT)/overlays/crc-local/values.yaml"
+
+        echo "Cloning swim-gitops..."
+        GIT_TERMINAL_PROMPT=0 git clone --depth=1 -b "$(params.GIT_BRANCH)" "${AUTH_URL}" "${WORKDIR}"
+        cd "${WORKDIR}"
+
+        if [ ! -f "${VALUES_PATH}" ]; then
+          echo "WARNING: ${VALUES_PATH} not found. Creating minimal values file."
+          mkdir -p "$(dirname ${VALUES_PATH})"
+          cat > "${VALUES_PATH}" <<VALS
+        image:
+          tag: "$(params.IMAGE_TAG)"
+        VALS
+        else
+          if grep -q "tag:" "${VALUES_PATH}"; then
+            sed -i "s|tag:.*|tag: \"$(params.IMAGE_TAG)\"|" "${VALUES_PATH}"
+          else
+            echo "  tag: \"$(params.IMAGE_TAG)\"" >> "${VALUES_PATH}"
+          fi
+        fi
+
+        git config user.email "tekton-ci@swim-developer.github.io"
+        git config user.name "Tekton CI"
+        git add "${VALUES_PATH}"
+        git diff --cached --quiet && echo "No changes to commit." && exit 0
+
+        git commit -m "ci($(params.SERVICE_NAME)): update image tag to $(params.IMAGE_TAG)"
+        git push origin "$(params.GIT_BRANCH)"
+        echo "GitOps repo updated: $(params.SERVICE_NAME) -> $(params.IMAGE_TAG)"

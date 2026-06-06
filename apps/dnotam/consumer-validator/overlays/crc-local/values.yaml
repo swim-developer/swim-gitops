@@ -1,0 +1,72 @@
+namespace: swim-demo
+
+appName: dnotam-consumer-validator
+
+clusterDomain: apps-crc.testing
+
+labels:
+  app: dnotam-consumer-validator
+  app.kubernetes.io/name: dnotam-consumer-validator
+  app.kubernetes.io/part-of: dnotam-consumer-validator
+
+image:
+  repository: image-registry.openshift-image-registry.svc:5000/swim-demo/swim-dnotam-consumer-validator
+  tag: latest
+  pullPolicy: Always
+
+replicas: 1
+
+resources:
+  requests:
+    memory: 64Mi
+    cpu: 100m
+  limits:
+    memory: 256Mi
+    cpu: "1"
+
+service:
+  httpPort: 8080
+  httpsPort: 8443
+
+config:
+  quarkusHttpPort: "8080"
+  quarkusHttpSslPort: "8443"
+  quarkusHttpSslCertificateFiles: "/certs/server/tls.crt"
+  quarkusHttpSslCertificateKeyFiles: "/certs/server/tls.key"
+  quarkusHttpSslCertificateTrustStoreFile: "/certs/ca/ca.crt"
+  quarkusHttpSslCertificateTrustStoreFileType: "PEM"
+  quarkusLogLevel: "INFO"
+  eventGeneratorEnabled: "true"
+  eventGeneratorSchedule: "0 */1 * * * ?"
+  eventGeneratorEventsPath: "/opt/events"
+  amqpBrokerHost: "validator-artemis-amqp-0-svc.swim-demo.svc.cluster.local"
+  amqpBrokerPort: "5672"
+  mariadbHost: "dnotam-consumer-validator-mariadb.swim-demo.svc.cluster.local"
+  mariadbPort: "3306"
+  mariadbDatabase: "swim_consumer_validator"
+
+mariadb:
+  username: "swim"
+  password: "swim"
+
+amqp:
+  username: "admin"
+  password: "admin"
+
+serverCert:
+  enabled: true
+  issuerName: swim-ca-issuer
+  issuerKind: Issuer
+
+clientCert:
+  enabled: true
+  issuerName: swim-ca-issuer
+  issuerKind: Issuer
+
+route:
+  enabled: true
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}

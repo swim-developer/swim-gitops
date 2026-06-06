@@ -1,0 +1,20 @@
+{{- if .Values.mariadb.enabled }}
+{{- range .Values.mariadb.instances }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .name }}-data
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: {{ .name }}
+    component: database
+    {{- include "swim-dnotam-infra.labels" $ | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ $.Values.mariadb.storageSize }}
+{{- end }}
+{{- end }}

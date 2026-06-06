@@ -1,0 +1,17 @@
+{{- if .Values.keycloak.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak-postgres
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: keycloak-postgres
+    app.kubernetes.io/component: postgres
+    {{- include "swim-infra.labels" . | nindent 4 }}
+spec:
+  ports:
+    - port: 5432
+      targetPort: 5432
+  selector:
+    app: keycloak-postgres
+{{- end }}

@@ -1,0 +1,16 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: el-swim-pipelines
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-pipelines
+spec:
+  to:
+    kind: Service
+    name: el-swim-pipelines
+  port:
+    targetPort: http-listener
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

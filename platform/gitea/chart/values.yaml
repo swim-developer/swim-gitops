@@ -1,0 +1,93 @@
+# Values for the swim-gitea wrapper chart.
+# The dependency is named 'gitea', so all overrides are under the 'gitea:' key.
+# Top-level chart keys (image, service, persistence, etc.) map directly.
+# The Gitea chart's internal 'gitea:' section (admin, config) needs double-nesting:
+#   gitea.gitea.config.server.DOMAIN → subchart's gitea.config.server.DOMAIN
+
+gitea:
+  # Image: top-level in the Gitea chart
+  image:
+    tag: "1.26.2"
+    rootless: true
+    pullPolicy: IfNotPresent
+
+  # Disable bundled Valkey/Redis and PostgreSQL — use SQLite + memory for CRC local
+  redis-cluster:
+    enabled: false
+  valkey-cluster:
+    enabled: false
+  postgresql-ha:
+    enabled: false
+  postgresql:
+    enabled: false
+
+  # Persistence: top-level
+  persistence:
+    enabled: true
+    size: 5Gi
+
+  # Resources: top-level
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+
+  # Service: top-level
+  service:
+    http:
+      type: ClusterIP
+      port: 3000
+
+  # Ingress: top-level (disabled — OpenShift Route is in templates/route.yaml)
+  ingress:
+    enabled: false
+
+  # OpenShift native mode (auto-detected via SCC API)
+  # hostUsers: false is required for restricted-v3 SCC compatibility
+  # The chart applies seccompProfile: RuntimeDefault when OpenShift is detected.
+
+  # Gitea application config — double-nested because 'gitea' is BOTH the subchart
+  # name AND the Gitea chart's internal grouping key.
+  gitea:
+    admin:
+      username: swimadmin
+      password: "Swim@Local1"
+      email: swim@localhost
+      passwordMode: keepUpdated
+
+    config:
+      server:
+        DOMAIN: gitea.apps-crc.testing
+        ROOT_URL: "https://gitea.apps-crc.testing"
+        SSH_DOMAIN: gitea.apps-crc.testing
+        SSH_LISTEN_PORT: 2222
+
+      database:
+        DB_TYPE: sqlite3
+        PATH: /data/gitea/gitea.db
+
+      cache:
+        ADAPTER: memory
+        HOST: ""
+
+      queue:
+        TYPE: level
+        CONN_STR: ""
+
+      session:
+        PROVIDER: memory
+        PROVIDER_CONFIG: ""
+
+      repository:
+        DEFAULT_BRANCH: main
+
+      service:
+        DISABLE_REGISTRATION: "true"
+
+# OpenShift: set at top-level of wrapper (passes through to subchart)
+openshift:
+  enabled: null
+  hostUsers: false

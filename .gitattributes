@@ -1,0 +1,4 @@
+# Force LF line endings for files that must run in bash/sh.
+# Prevents CRLF issues on Windows (Git default: core.autocrlf=true).
+*.sh        text eol=lf
+Makefile    text eol=lf

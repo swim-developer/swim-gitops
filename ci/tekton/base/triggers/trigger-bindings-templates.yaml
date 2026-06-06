@@ -1,0 +1,508 @@
+# TriggerBinding and TriggerTemplate for each SWIM service repo.
+# Each pair maps a GitHub push event to a PipelineRun.
+# Workspaces use volumeClaimTemplate (ephemeral per run) for source
+# and the shared maven-repo-pvc for the Maven cache.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DNOTAM consumer-validator
+# ─────────────────────────────────────────────────────────────────────────────
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: swim-dnotam-consumer-validator-binding
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-gitops
+spec:
+  params:
+    - name: git-revision
+      value: $(body.after)
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: swim-dnotam-consumer-validator-template
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-gitops
+spec:
+  params:
+    - name: git-revision
+      default: main
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1
+      kind: PipelineRun
+      metadata:
+        generateName: swim-dnotam-consumer-validator-
+        namespace: swim-pipeline
+        labels:
+          app.kubernetes.io/part-of: swim-gitops
+          tekton.dev/pipeline: swim-dnotam-consumer-validator-ci
+      spec:
+        pipelineRef:
+          name: swim-dnotam-consumer-validator-ci
+        params:
+          - name: git-revision
+            value: $(tt.params.git-revision)
+          - name: image-tag
+            value: $(tt.params.git-revision)
+        workspaces:
+          - name: shared-workspace
+            volumeClaimTemplate:
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 10Gi
+          - name: maven-cache
+            persistentVolumeClaim:
+              claimName: maven-repo-pvc
+          - name: docker-credentials
+            secret:
+              secretName: quay-push-auth
+          - name: git-token
+            secret:
+              secretName: gitea-token
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DNOTAM provider-validator
+# ─────────────────────────────────────────────────────────────────────────────
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: swim-dnotam-provider-validator-binding
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-gitops
+spec:
+  params:
+    - name: git-revision
+      value: $(body.after)
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: swim-dnotam-provider-validator-template
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-gitops
+spec:
+  params:
+    - name: git-revision
+      default: main
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1
+      kind: PipelineRun
+      metadata:
+        generateName: swim-dnotam-provider-validator-
+        namespace: swim-pipeline
+        labels:
+          app.kubernetes.io/part-of: swim-gitops
+          tekton.dev/pipeline: swim-dnotam-provider-validator-ci
+      spec:
+        pipelineRef:
+          name: swim-dnotam-provider-validator-ci
+        params:
+          - name: git-revision
+            value: $(tt.params.git-revision)
+          - name: image-tag
+            value: $(tt.params.git-revision)
+        workspaces:
+          - name: shared-workspace
+            volumeClaimTemplate:
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 10Gi
+          - name: maven-cache
+            persistentVolumeClaim:
+              claimName: maven-repo-pvc
+          - name: docker-credentials
+            secret:
+              secretName: quay-push-auth
+          - name: git-token
+            secret:
+              secretName: gitea-token
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ED-254 consumer-validator
+# ─────────────────────────────────────────────────────────────────────────────
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: swim-ed254-consumer-validator-binding
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-gitops
+spec:
+  params:
+    - name: git-revision
+      value: $(body.after)
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: swim-ed254-consumer-validator-template
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-gitops
+spec:
+  params:
+    - name: git-revision
+      default: main
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1
+      kind: PipelineRun
+      metadata:
+        generateName: swim-ed254-consumer-validator-
+        namespace: swim-pipeline
+        labels:
+          app.kubernetes.io/part-of: swim-gitops
+          tekton.dev/pipeline: swim-ed254-consumer-validator-ci
+      spec:
+        pipelineRef:
+          name: swim-ed254-consumer-validator-ci
+        params:
+          - name: git-revision
+            value: $(tt.params.git-revision)
+          - name: image-tag
+            value: $(tt.params.git-revision)
+        workspaces:
+          - name: shared-workspace
+            volumeClaimTemplate:
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 10Gi
+          - name: maven-cache
+            persistentVolumeClaim:
+              claimName: maven-repo-pvc
+          - name: docker-credentials
+            secret:
+              secretName: quay-push-auth
+          - name: git-token
+            secret:
+              secretName: gitea-token
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ED-254 provider-validator
+# ─────────────────────────────────────────────────────────────────────────────
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: swim-ed254-provider-validator-binding
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-gitops
+spec:
+  params:
+    - name: git-revision
+      value: $(body.after)
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: swim-ed254-provider-validator-template
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-gitops
+spec:
+  params:
+    - name: git-revision
+      default: main
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1
+      kind: PipelineRun
+      metadata:
+        generateName: swim-ed254-provider-validator-
+        namespace: swim-pipeline
+        labels:
+          app.kubernetes.io/part-of: swim-gitops
+          tekton.dev/pipeline: swim-ed254-provider-validator-ci
+      spec:
+        pipelineRef:
+          name: swim-ed254-provider-validator-ci
+        params:
+          - name: git-revision
+            value: $(tt.params.git-revision)
+          - name: image-tag
+            value: $(tt.params.git-revision)
+        workspaces:
+          - name: shared-workspace
+            volumeClaimTemplate:
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 10Gi
+          - name: maven-cache
+            persistentVolumeClaim:
+              claimName: maven-repo-pvc
+          - name: docker-credentials
+            secret:
+              secretName: quay-push-auth
+          - name: git-token
+            secret:
+              secretName: gitea-token
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DNOTAM consumer
+# ─────────────────────────────────────────────────────────────────────────────
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: swim-dnotam-consumer-binding
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-gitops
+spec:
+  params:
+    - name: git-revision
+      value: $(body.after)
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: swim-dnotam-consumer-template
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-gitops
+spec:
+  params:
+    - name: git-revision
+      default: main
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1
+      kind: PipelineRun
+      metadata:
+        generateName: swim-dnotam-consumer-
+        namespace: swim-pipeline
+        labels:
+          app.kubernetes.io/part-of: swim-gitops
+          tekton.dev/pipeline: swim-dnotam-consumer-ci
+      spec:
+        pipelineRef:
+          name: swim-dnotam-consumer-ci
+        params:
+          - name: git-revision
+            value: $(tt.params.git-revision)
+          - name: image-tag
+            value: $(tt.params.git-revision)
+        workspaces:
+          - name: shared-workspace
+            volumeClaimTemplate:
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 10Gi
+          - name: maven-cache
+            persistentVolumeClaim:
+              claimName: maven-repo-pvc
+          - name: docker-credentials
+            secret:
+              secretName: quay-push-auth
+          - name: git-token
+            secret:
+              secretName: gitea-token
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DNOTAM provider
+# ─────────────────────────────────────────────────────────────────────────────
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: swim-dnotam-provider-binding
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-gitops
+spec:
+  params:
+    - name: git-revision
+      value: $(body.after)
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: swim-dnotam-provider-template
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-gitops
+spec:
+  params:
+    - name: git-revision
+      default: main
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1
+      kind: PipelineRun
+      metadata:
+        generateName: swim-dnotam-provider-
+        namespace: swim-pipeline
+        labels:
+          app.kubernetes.io/part-of: swim-gitops
+          tekton.dev/pipeline: swim-dnotam-provider-ci
+      spec:
+        pipelineRef:
+          name: swim-dnotam-provider-ci
+        params:
+          - name: git-revision
+            value: $(tt.params.git-revision)
+          - name: image-tag
+            value: $(tt.params.git-revision)
+        workspaces:
+          - name: shared-workspace
+            volumeClaimTemplate:
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 10Gi
+          - name: maven-cache
+            persistentVolumeClaim:
+              claimName: maven-repo-pvc
+          - name: docker-credentials
+            secret:
+              secretName: quay-push-auth
+          - name: git-token
+            secret:
+              secretName: gitea-token
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ED-254 consumer
+# ─────────────────────────────────────────────────────────────────────────────
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: swim-ed254-consumer-binding
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-gitops
+spec:
+  params:
+    - name: git-revision
+      value: $(body.after)
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: swim-ed254-consumer-template
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-gitops
+spec:
+  params:
+    - name: git-revision
+      default: main
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1
+      kind: PipelineRun
+      metadata:
+        generateName: swim-ed254-consumer-
+        namespace: swim-pipeline
+        labels:
+          app.kubernetes.io/part-of: swim-gitops
+          tekton.dev/pipeline: swim-ed254-consumer-ci
+      spec:
+        pipelineRef:
+          name: swim-ed254-consumer-ci
+        params:
+          - name: git-revision
+            value: $(tt.params.git-revision)
+          - name: image-tag
+            value: $(tt.params.git-revision)
+        workspaces:
+          - name: shared-workspace
+            volumeClaimTemplate:
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 10Gi
+          - name: maven-cache
+            persistentVolumeClaim:
+              claimName: maven-repo-pvc
+          - name: docker-credentials
+            secret:
+              secretName: quay-push-auth
+          - name: git-token
+            secret:
+              secretName: gitea-token
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ED-254 provider
+# ─────────────────────────────────────────────────────────────────────────────
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: swim-ed254-provider-binding
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-gitops
+spec:
+  params:
+    - name: git-revision
+      value: $(body.after)
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: swim-ed254-provider-template
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-gitops
+spec:
+  params:
+    - name: git-revision
+      default: main
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1
+      kind: PipelineRun
+      metadata:
+        generateName: swim-ed254-provider-
+        namespace: swim-pipeline
+        labels:
+          app.kubernetes.io/part-of: swim-gitops
+          tekton.dev/pipeline: swim-ed254-provider-ci
+      spec:
+        pipelineRef:
+          name: swim-ed254-provider-ci
+        params:
+          - name: git-revision
+            value: $(tt.params.git-revision)
+          - name: image-tag
+            value: $(tt.params.git-revision)
+        workspaces:
+          - name: shared-workspace
+            volumeClaimTemplate:
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 10Gi
+          - name: maven-cache
+            persistentVolumeClaim:
+              claimName: maven-repo-pvc
+          - name: docker-credentials
+            secret:
+              secretName: quay-push-auth
+          - name: git-token
+            secret:
+              secretName: gitea-token

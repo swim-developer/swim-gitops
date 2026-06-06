@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: swim-ed254-infra
+  namespace: openshift-gitops
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: swim
+  source:
+    repoURL: http://gitea-http.gitea.svc.cluster.local:3000/swimadmin/swim-gitops.git
+    targetRevision: main
+    path: infra/swim-ed254-infra/chart
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: swim-demo
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

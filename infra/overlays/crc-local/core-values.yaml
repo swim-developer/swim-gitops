@@ -1,0 +1,28 @@
+clusterDomain: apps-crc.testing
+
+certManager:
+  issuerName: swim-ca-issuer
+  # Namespaced Issuer: CA secret lives in swim-demo (Argo destination namespace).
+  issuerKind: Issuer
+
+pki:
+  enabled: true
+  certManagerNamespace: swim-demo
+
+kafka:
+  enabled: true
+  # AMQ Streams 3.2 on CRC supports 4.1.x / 4.2.x.
+  version: "4.1.0"
+  metadataVersion: "4.1-IV0"
+  replicas: 1
+  storageSize: "2Gi"
+
+keycloak:
+  enabled: true
+  spi:
+    # Enable after publishing keycloak-swim-role-spi.jar on swim-developer-add-ons releases (v1.0.0).
+    enabled: false
+  replicas: 1
+  route:
+    enabled: true
+    hostname: "rhbk.apps-crc.testing"

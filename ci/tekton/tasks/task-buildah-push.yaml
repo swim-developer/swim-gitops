@@ -1,0 +1,96 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: swim-buildah-push
+  namespace: swim-pipeline
+  labels:
+    app.kubernetes.io/part-of: swim-pipelines
+spec:
+  description: >-
+    Builds and pushes a container image using Buildah.
+    Designed for OpenShift pipelines-scc (no privileged mode).
+  params:
+    - name: IMAGE
+      type: string
+      description: Destination image reference (e.g. quay.io/user/app:tag)
+    - name: DOCKERFILE
+      type: string
+      description: Path to the Containerfile relative to CONTEXT
+      default: Containerfile
+    - name: CONTEXT
+      type: string
+      description: Build context directory relative to workspace root
+      default: "."
+    - name: STORAGE_DRIVER
+      type: string
+      description: Buildah storage driver
+      default: vfs
+    - name: FORMAT
+      type: string
+      description: Image format (oci or docker)
+      default: oci
+    - name: TLSVERIFY
+      type: string
+      description: Verify TLS on push
+      default: "true"
+  workspaces:
+    - name: source
+      description: Source code workspace
+    - name: dockerconfig
+      description: Registry credentials
+      optional: true
+  steps:
+    - name: build-and-push
+      image: quay.io/buildah/stable:latest
+      workingDir: $(workspaces.source.path)
+      securityContext:
+        runAsUser: 0
+        capabilities:
+          add:
+            - SETFCAP
+      volumeMounts:
+        - name: varlibcontainers
+          mountPath: /var/lib/containers
+      script: |
+        #!/usr/bin/env bash
+        set -e
+
+        DOCKER_CONFIG=""
+        if [ -d "$(workspaces.dockerconfig.path)" ]; then
+          export DOCKER_CONFIG="$(workspaces.dockerconfig.path)"
+          if [ -f "${DOCKER_CONFIG}/config.json" ]; then
+            export REGISTRY_AUTH_FILE="${DOCKER_CONFIG}/config.json"
+          elif [ -f "${DOCKER_CONFIG}/.dockerconfigjson" ]; then
+            export REGISTRY_AUTH_FILE="${DOCKER_CONFIG}/.dockerconfigjson"
+          fi
+          echo "Using registry auth: ${REGISTRY_AUTH_FILE}"
+        fi
+
+        echo "========================================"
+        echo "Image:      $(params.IMAGE)"
+        echo "Dockerfile: $(params.CONTEXT)/$(params.DOCKERFILE)"
+        echo "Context:    $(params.CONTEXT)"
+        echo "Format:     $(params.FORMAT)"
+        echo "========================================"
+
+        buildah --storage-driver=$(params.STORAGE_DRIVER) bud \
+          --format=$(params.FORMAT) \
+          --tls-verify=$(params.TLSVERIFY) \
+          --layers \
+          -f $(params.CONTEXT)/$(params.DOCKERFILE) \
+          -t $(params.IMAGE) \
+          $(params.CONTEXT)
+
+        echo ""
+        echo "Pushing $(params.IMAGE)..."
+        buildah --storage-driver=$(params.STORAGE_DRIVER) push \
+          --tls-verify=$(params.TLSVERIFY) \
+          $(params.IMAGE) \
+          docker://$(params.IMAGE)
+
+        echo "========================================"
+        echo "Image pushed successfully: $(params.IMAGE)"
+        echo "========================================"
+  volumes:
+    - name: varlibcontainers
+      emptyDir: {}

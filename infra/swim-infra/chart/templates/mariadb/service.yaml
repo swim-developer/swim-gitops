@@ -1,0 +1,26 @@
+{{- if .Values.mariadb.enabled }}
+{{- range .Values.mariadb.instances }}
+{{- if has .module $.Values.modules }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: {{ .name }}
+    component: database
+    {{- include "swim-infra.labels" $ | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: mariadb
+      port: 3306
+      targetPort: 3306
+      protocol: TCP
+  selector:
+    app: {{ .name }}
+    component: database
+{{- end }}
+{{- end }}
+{{- end }}

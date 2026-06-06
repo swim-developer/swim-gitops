@@ -1,0 +1,149 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: swim-pipeline
+
+# CRC-local overlay:
+#  - Images go to the OpenShift internal registry (swim-demo namespace)
+#  - Gitea release task included
+#  - docker-credentials workspace uses internal-registry-auth instead of quay-push-auth
+#  - OpenShift Route added for the EventListener
+resources:
+  - ../../base
+  - route-event-listener.yaml
+
+patches:
+  # ── image-name default: replace quay.io with internal OpenShift registry ──
+  - target:
+      group: tekton.dev
+      version: v1
+      kind: Pipeline
+      name: swim-dnotam-consumer-validator-ci
+      namespace: swim-pipeline
+    patch: |
+      - op: replace
+        path: /spec/params/2/default
+        value: "image-registry.openshift-image-registry.svc:5000/swim-demo/swim-dnotam-consumer-validator"
+
+  - target:
+      group: tekton.dev
+      version: v1
+      kind: Pipeline
+      name: swim-dnotam-provider-validator-ci
+      namespace: swim-pipeline
+    patch: |
+      - op: replace
+        path: /spec/params/2/default
+        value: "image-registry.openshift-image-registry.svc:5000/swim-demo/swim-dnotam-provider-validator"
+
+  - target:
+      group: tekton.dev
+      version: v1
+      kind: Pipeline
+      name: swim-ed254-consumer-validator-ci
+      namespace: swim-pipeline
+    patch: |
+      - op: replace
+        path: /spec/params/2/default
+        value: "image-registry.openshift-image-registry.svc:5000/swim-demo/swim-ed254-consumer-validator"
+
+  - target:
+      group: tekton.dev
+      version: v1
+      kind: Pipeline
+      name: swim-ed254-provider-validator-ci
+      namespace: swim-pipeline
+    patch: |
+      - op: replace
+        path: /spec/params/2/default
+        value: "image-registry.openshift-image-registry.svc:5000/swim-demo/swim-ed254-provider-validator"
+
+  - target:
+      group: tekton.dev
+      version: v1
+      kind: Pipeline
+      name: swim-dnotam-consumer-ci
+      namespace: swim-pipeline
+    patch: |
+      - op: replace
+        path: /spec/params/2/default
+        value: "image-registry.openshift-image-registry.svc:5000/swim-demo/swim-dnotam-consumer"
+
+  - target:
+      group: tekton.dev
+      version: v1
+      kind: Pipeline
+      name: swim-dnotam-provider-ci
+      namespace: swim-pipeline
+    patch: |
+      - op: replace
+        path: /spec/params/2/default
+        value: "image-registry.openshift-image-registry.svc:5000/swim-demo/swim-dnotam-provider"
+
+  - target:
+      group: tekton.dev
+      version: v1
+      kind: Pipeline
+      name: swim-ed254-consumer-ci
+      namespace: swim-pipeline
+    patch: |
+      - op: replace
+        path: /spec/params/2/default
+        value: "image-registry.openshift-image-registry.svc:5000/swim-demo/swim-ed254-consumer"
+
+  - target:
+      group: tekton.dev
+      version: v1
+      kind: Pipeline
+      name: swim-ed254-provider-ci
+      namespace: swim-pipeline
+    patch: |
+      - op: replace
+        path: /spec/params/2/default
+        value: "image-registry.openshift-image-registry.svc:5000/swim-demo/swim-ed254-provider"
+
+  - target:
+      group: tekton.dev
+      version: v1
+      kind: Pipeline
+      name: swim-ffice-consumer-validator-ci
+      namespace: swim-pipeline
+    patch: |
+      - op: replace
+        path: /spec/params/2/default
+        value: "image-registry.openshift-image-registry.svc:5000/swim-demo/swim-ffice-consumer-validator"
+
+  - target:
+      group: tekton.dev
+      version: v1
+      kind: Pipeline
+      name: swim-ffice-provider-validator-ci
+      namespace: swim-pipeline
+    patch: |
+      - op: replace
+        path: /spec/params/2/default
+        value: "image-registry.openshift-image-registry.svc:5000/swim-demo/swim-ffice-provider-validator"
+
+  - target:
+      group: tekton.dev
+      version: v1
+      kind: Pipeline
+      name: swim-ffice-consumer-ci
+      namespace: swim-pipeline
+    patch: |
+      - op: replace
+        path: /spec/params/2/default
+        value: "image-registry.openshift-image-registry.svc:5000/swim-demo/swim-ffice-consumer"
+
+  - target:
+      group: tekton.dev
+      version: v1
+      kind: Pipeline
+      name: swim-ffice-provider-ci
+      namespace: swim-pipeline
+    patch: |
+      - op: replace
+        path: /spec/params/2/default
+        value: "image-registry.openshift-image-registry.svc:5000/swim-demo/swim-ffice-provider"
+
+  # ── docker-credentials: replace quay-push-auth with internal-registry-auth ──
+  - path: patch-trigger-registry-secret.yaml

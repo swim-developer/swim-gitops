@@ -1,0 +1,16 @@
+apiVersion: v2
+name: swim-dnotam-infra
+description: SWIM DNOTAM service infrastructure — Kafka topics, MongoDB, MariaDB, PostgreSQL
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - swim
+  - dnotam
+  - infrastructure
+  - kafka
+  - mongodb
+  - mariadb
+  - postgresql
+maintainers:
+  - name: SWIM Developer
