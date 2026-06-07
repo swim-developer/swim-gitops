@@ -47,7 +47,7 @@ ifeq ($(SWIM_STACKS),all)
   override SWIM_STACKS := dnotam ed254 ffice
 endif
 
-.PHONY: help crc-setup crc-check-pull-secret crc-start crc-show-domain crc-use-local \
+.PHONY: help crc-check-cli crc-setup crc-check-pull-secret crc-start crc-show-domain crc-use-local crc-clean \
 	gitops-install gitops-wait gitops-bootstrap argocd-status operators operators-wait \
 	crc-phase-infra artemis-ssl security-check \
 	ci-bootstrap-images ci-install ci-install-crc ci-quay-secret ci-registry-setup ci-status \
@@ -71,6 +71,7 @@ help:
 	@echo "    make crc-setup         crc config ($(CRC_CPUS) CPU, $(CRC_MEMORY_MB) MiB) + crc setup"
 	@echo "    make crc-start         crc start (requires ./pull-secret.txt)"
 	@echo "    make crc-use-local     Point oc at CRC (context crc-admin)"
+	@echo "    make crc-clean         Stop + delete CRC instance (full reset for reinstall)"
 	@echo ""
 	@echo "  GitOps:"
 	@echo "    make gitops-install    Install OpenShift GitOps operator + wait for Argo CD"
@@ -98,7 +99,22 @@ help:
 	@echo "    (Replaces all Gitea URLs with your production Git server)"
 	@echo ""
 
-crc-setup:
+crc-check-cli:
+	@command -v crc >/dev/null 2>&1 || { \
+		echo ""; \
+		echo "  ERROR: 'crc' not found in PATH."; \
+		echo ""; \
+		echo "  Install OpenShift Local (CRC):"; \
+		echo "    https://console.redhat.com/openshift/create/local"; \
+		echo ""; \
+		echo "  After installing, ensure 'crc' is in your PATH:"; \
+		echo "    Linux/macOS : export PATH=\$$PATH:\$$HOME/.crc/bin"; \
+		echo "    Windows     : add %USERPROFILE%\\.crc\\bin to your PATH"; \
+		echo ""; \
+		exit 1; \
+	}
+
+crc-setup: crc-check-cli
 	@echo "  Setting CRC resources: $(CRC_CPUS) CPUs, $(CRC_MEMORY_MB) MiB RAM, $(CRC_DISK_GB) GB disk..."
 	crc config set cpus $(CRC_CPUS)
 	crc config set memory $(CRC_MEMORY_MB)
@@ -118,7 +134,7 @@ crc-check-pull-secret:
 		exit 1; \
 	fi
 
-crc-start: crc-check-pull-secret
+crc-start: crc-check-cli crc-check-pull-secret
 	@echo "  Starting CRC with pull secret: $(CRC_PULL_SECRET)"
 	crc config set pull-secret-file "$(CRC_PULL_SECRET)"
 	crc start -p "$(CRC_PULL_SECRET)"
@@ -126,7 +142,7 @@ crc-start: crc-check-pull-secret
 	@echo "  CRC started."
 	@echo ""
 
-crc-show-domain:
+crc-show-domain: crc-check-cli
 	@echo ""
 	@crc status 2>/dev/null | grep -E 'OpenShift|Ingress|Domain' || true
 	@echo ""
@@ -135,6 +151,20 @@ crc-use-local:
 	@oc config use-context crc-admin 2>/dev/null || true
 	@oc whoami --show-server 2>/dev/null || \
 		(echo "  ERROR: oc cannot reach CRC. Run 'eval \$$(crc oc-env)' (Linux/macOS) or 'crc oc-env --shell powershell | Invoke-Expression' (Windows)." && exit 1)
+
+crc-clean: crc-check-cli
+	@echo ""
+	@echo "  Cleaning OpenShift Local (CRC)..."
+	@echo ""
+	@echo "  Stopping CRC instance..."
+	@crc stop 2>/dev/null || true
+	@echo "  Deleting CRC instance..."
+	@crc delete -f 2>/dev/null || true
+	@echo ""
+	@echo "  CRC instance deleted. To start fresh:"
+	@echo "    make crc-setup"
+	@echo "    make crc-start"
+	@echo ""
 
 gitops-install: crc-use-local
 	oc apply -f platform/gitops/
