@@ -40,19 +40,7 @@ keycloak:
       cliImage: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
       backoffLimit: 3
       activeDeadlineSeconds: 300
-      resources:
-        requests:
-          memory: 64Mi
-          cpu: 50m
-        limits:
-          memory: 128Mi
-          cpu: 200m
   replicas: 1
-  resources:
-    requests:
-      memory: 512Mi
-    limits:
-      memory: 1Gi
   admin:
     username: admin
     password: password
@@ -65,13 +53,6 @@ keycloak:
     user: keycloak
     password: password
     storageSize: "512Mi"
-    resources:
-      requests:
-        memory: 128Mi
-        cpu: 100m
-      limits:
-        memory: 256Mi
-        cpu: "1"
   realm:
     name: swim
     clients:

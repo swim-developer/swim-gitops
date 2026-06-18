@@ -1,4 +1,4 @@
-# Allow OpenShift GitOps application-controller to reconcile swim-infra into swim-demo.
+# Allow OpenShift GitOps application-controller to reconcile SWIM infra charts into swim-demo.
 # Required on CRC; OpenShift GitOps does not grant cross-namespace admin by default.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

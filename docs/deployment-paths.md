@@ -6,10 +6,10 @@ This document describes the two supported deployment paths for SWIM services on 
 
 ## Overview
 
-| Aspect | GitOps (Argo CD) | Operator (swim-operator) |
+| Aspect | GitOps (Argo CD) | Operator (swim-openshift-operator) |
 |--------|-----------------|--------------------------|
 | **Status** | **Recommended** — actively maintained | Legacy — optional, frozen |
-| **Repository** | [swim-developer/swim-gitops](https://github.com/swim-developer/swim-gitops) | [swim-developer/swim-operator](https://github.com/swim-developer/swim-operator) |
+| **Repository** | [swim-developer/swim-gitops](https://github.com/swim-developer/swim-gitops) | [swim-developer/swim-openshift-operator](https://github.com/swim-developer/swim-openshift-operator) |
 | **Target audience** | INSPs, ANSPs, community contributors | Advanced users comfortable with Go operators |
 | **Prerequisites** | OpenShift GitOps or Argo CD, Tekton/OpenShift Pipelines | OLM, Go toolchain (for development) |
 | **Infrastructure** | Helm charts (declarative CRs for Kafka, Artemis, DBs) | Operator creates infrastructure per CR |
@@ -90,7 +90,7 @@ oc create -f <pipeline-run.yaml> -n swim-pipeline
 
 ### Architecture
 
-The `swim-operator` defines Custom Resources (CRDs) that encapsulate each SWIM service:
+The `swim-openshift-operator` defines Custom Resources (CRDs) that encapsulate each SWIM service:
 
 ```yaml
 apiVersion: swim.github.com/v1alpha1
@@ -116,11 +116,11 @@ spec:
 
 ```bash
 # Install the operator via OLM
-oc apply -f swim-operator/config/samples/catalog-source.yaml
-oc apply -f swim-operator/config/samples/subscription.yaml
+oc apply -f swim-openshift-operator/config/samples/catalog-source.yaml
+oc apply -f swim-openshift-operator/config/samples/subscription.yaml
 
 # Create a SWIM service
-oc apply -f swim-operator/config/samples/swim_v1alpha1_digitalnotamprovider.yaml
+oc apply -f swim-openshift-operator/config/samples/swim_v1alpha1_digitalnotamprovider.yaml
 ```
 
 ---

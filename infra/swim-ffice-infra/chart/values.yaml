@@ -19,13 +19,6 @@ mongodb:
   enabled: true
   image: "quay.io/mongodb/mongodb-community-server:8.0-ubi9-slim"
   storageSize: "1Gi"
-  resources:
-    requests:
-      memory: 256Mi
-      cpu: 100m
-    limits:
-      memory: 512Mi
-      cpu: "1"
   credentials:
     user: swim
     password: swim123
@@ -38,13 +31,6 @@ mariadb:
   enabled: true
   image: "docker.io/library/mariadb:12-ubi"
   storageSize: "1Gi"
-  resources:
-    requests:
-      memory: 128Mi
-      cpu: 100m
-    limits:
-      memory: 256Mi
-      cpu: "1"
   credentials:
     user: swim
     password: swim
@@ -59,13 +45,6 @@ postgres:
   enabled: true
   image: "registry.redhat.io/rhel9/postgresql-16:latest"
   storageSize: "1Gi"
-  resources:
-    requests:
-      memory: 128Mi
-      cpu: 100m
-    limits:
-      memory: 256Mi
-      cpu: "1"
   credentials:
     user: swim-provider
     password: swim-provider
